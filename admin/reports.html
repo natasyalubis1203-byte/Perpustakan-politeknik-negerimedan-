@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Laporan - Admin</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+    <link rel="stylesheet" href="./css/admin.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="logo">Admin Perpustakaan Politeknik Negeri Medan</div>
+        <nav>
+          <ul>
+            <li><a href="./dashboard.html">Dashboard</a></li>
+            <li><a href="./books.html">Kelola Buku</a></li>
+            <li><a href="./members.html">Kelola Anggota</a></li>
+            <li><a href="./loans.html">Kelola Peminjaman</a></li>
+            <li><a href="./returns.html">Kelola Pengembalian</a></li>
+            <li><a class="active" href="./reports.html">Laporan</a></li>
+            <li><a href="./login-requests.html">Ajuan Pengunjung</a></li>
+            <li><a href="../admin/login.html">Logout</a></li>
+          </ul>
+        </nav>
+      </aside>
+
+      <main class="main">
+        <div class="topbar">
+          <div>
+            <h1>Laporan</h1>
+            <p class="label">Statistik bulanan perpustakaan</p>
+          </div>
+          <div>
+            <button class="btn btn-outline">Filter Bulan</button>
+            <button class="btn btn-primary">Cetak PDF</button>
+          </div>
+        </div>
+
+        <section class="report-grid" id="reportGrid">
+          <article class="card report-card">
+            <h4>Peminjaman Bulanan</h4>
+            <p id="statPeminjaman">0</p>
+            <span class="label" id="statPeminjamanChange">Memuat data...</span>
+          </article>
+          <article class="card report-card">
+            <h4>Buku Terpopuler</h4>
+            <p id="statBukuPopuler">-</p>
+            <span class="label" id="statBukuPopulerCount">Memuat data...</span>
+          </article>
+          <article class="card report-card">
+            <h4>Anggota Aktif</h4>
+            <p id="statAnggotaAktif">0</p>
+            <span class="label" id="statAnggotaBaru">Memuat data...</span>
+          </article>
+        </section>
+
+        <section class="card table-card">
+          <h2 style="margin-bottom: 12px;">Detail Laporan</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Jenis</th>
+                <th>Deskripsi</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody id="reportTableBody">
+              <tr>
+                <td colspan="3" style="text-align: center; padding: 24px;">Memuat data...</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+      </main>
+    </div>
+  </body>
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+    crossorigin="anonymous"
+  ></script>
+  <script>
+    (function () {
+      function loadReports() {
+        fetch('./reports-api.php')
+          .then(response => response.json())
+          .then(data => {
+            if (!data.success) {
+              console.error('Error loading reports:', data.message);
+              return;
+            }
+
+            const stats = data.stats;
+
+            // Update Peminjaman Bulanan
+            document.getElementById('statPeminjaman').textContent = stats.peminjaman_bulanan.total;
+            const changeText = stats.peminjaman_bulanan.percentage_change >= 0 ? 'Naik' : 'Turun';
+            const changeClass = stats.peminjaman_bulanan.is_increase ? '' : 'text-danger';
+            document.getElementById('statPeminjamanChange').textContent = 
+              changeText + ' ' + Math.abs(stats.peminjaman_bulanan.percentage_change) + '% dari bulan lalu';
+            if (!stats.peminjaman_bulanan.is_increase) {
+              document.getElementById('statPeminjamanChange').classList.add('text-danger');
+            }
+
+            // Update Buku Terpopuler
+            document.getElementById('statBukuPopuler').textContent = stats.buku_terpopuler.judul;
+            document.getElementById('statBukuPopulerCount').textContent = 
+              stats.buku_terpopuler.jumlah + ' kali dipinjam';
+
+            // Update Anggota Aktif
+            document.getElementById('statAnggotaAktif').textContent = stats.anggota_aktif.total;
+            const newMembersText = stats.anggota_aktif.anggota_baru > 0 
+              ? '+' + stats.anggota_aktif.anggota_baru + ' anggota baru'
+              : 'Tidak ada anggota baru';
+            document.getElementById('statAnggotaBaru').textContent = newMembersText;
+
+            // Update Detail Table
+            const tbody = document.getElementById('reportTableBody');
+            tbody.innerHTML = data.details.map(detail => {
+              return `
+                <tr>
+                  <td>${escapeHtml(detail.jenis)}</td>
+                  <td>${escapeHtml(detail.deskripsi)}</td>
+                  <td>${escapeHtml(detail.total)}</td>
+                </tr>
+              `;
+            }).join('');
+          })
+          .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('statPeminjamanChange').textContent = 'Gagal memuat data';
+            document.getElementById('statBukuPopulerCount').textContent = 'Gagal memuat data';
+            document.getElementById('statAnggotaBaru').textContent = 'Gagal memuat data';
+            document.getElementById('reportTableBody').innerHTML = 
+              '<tr><td colspan="3" style="text-align: center; padding: 24px;">Gagal memuat data.</td></tr>';
+          });
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      loadReports();
+    })();
+  </script>
+</html>
+

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login Admin - Perpustakaan Politeknik Negeri Medan</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+    <link rel="stylesheet" href="./css/admin.css" />
+  </head>
+  <body class="login-page">
+    <div class="login-shell">
+      <div class="login-card">
+        <div class="login-header">
+          <div class="badge-admin">Admin</div>
+          <h1>Dashboard Perpustakaan</h1>
+          <p>Gunakan kredensial resmi admin untuk mengelola koleksi, anggota, dan laporan.</p>
+        </div>
+        <form class="login-form" id="adminLoginForm">
+          <div class="form-group">
+            <label for="admin-username">Username Admin</label>
+            <input id="admin-username" type="text" placeholder="contoh: admin" autocomplete="username" required />
+          </div>
+          <div class="form-group">
+            <label for="admin-password">Password</label>
+            <input
+              id="admin-password"
+              type="password"
+              placeholder="masukkan password"
+              autocomplete="current-password"
+              required
+            />
+          </div>
+          <div class="login-meta">
+            <label class="remember">
+              <input type="checkbox" />
+              Ingat perangkat ini
+            </label>
+            <a href="#" class="muted-link">Lupa password?</a>
+          </div>
+          <button class="btn btn-primary w-100" type="submit">Masuk ke Dashboard</button>
+          <p class="login-hint">
+            Kredensial default: <strong>username</strong> <code>admin</code> &middot; <strong>password</strong> <code>admin123</code>
+          </p>
+          <p class="login-error-message" role="alert">Username atau password salah. Silakan coba lagi.</p>
+        </form>
+        <div class="login-footer">
+          <p>
+            Belum punya akun admin?
+            <a href="../user/login.html">Hubungi administrator utama untuk mendapatkan akses.</a>
+          </p>
+        </div>
+      </div>
+      <div class="login-illustration">
+        <h2>Perpustakaan Terintegrasi</h2>
+        <p>Kelola ribuan data buku, anggota, peminjaman, dan laporan dalam satu panel kendali.</p>
+        <ul>
+          <li>Pantau peminjaman secara real time</li>
+          <li>Terbitkan laporan bulanan otomatis</li>
+          <li>Koordinasikan tim pustakawan lebih cepat</li>
+        </ul>
+      </div>
+    </div>
+    <script>
+      (function () {
+        const form = document.getElementById('adminLoginForm');
+        const usernameInput = document.getElementById('admin-username');
+        const passwordInput = document.getElementById('admin-password');
+        const VALID_USERNAME = 'admin';
+        const VALID_PASSWORD = 'admin123';
+
+        form?.addEventListener('submit', (event) => {
+          event.preventDefault();
+          const username = usernameInput?.value.trim();
+          const password = passwordInput?.value;
+
+          if (username === VALID_USERNAME && password === VALID_PASSWORD) {
+            form.classList.remove('login-error');
+            window.location.href = './dashboard.html';
+          } else {
+            form.classList.add('login-error');
+            passwordInput.value = '';
+            passwordInput.focus();
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>
+

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Peminjaman Saya - PerpustakaanKu</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+    <link rel="stylesheet" href="./css/style.css" />
+  </head>
+  <body>
+    <div class="page">
+      <header>
+        <div class="container nav">
+          <a class="logo" href="./index.html">Perpustakaan Politeknik Negeri Medan</a>
+         
+  
+        </div>
+      </header>
+
+      <main class="container" style="padding: 40px 0;">
+        <div class="section-header">
+          <div>
+            <h1>Peminjaman Saya</h1>
+            <p class="muted">Pantau status peminjaman dan riwayat pengajuan.</p>
+          </div>
+          <a class="btn btn-primary" href="./dashboard.html">Dashboard</a>
+        </div>
+
+        <div id="errorMessage" class="card" style="margin-bottom: 24px; display: none;"></div>
+
+        <section id="loansSection" class="card" style="margin-bottom: 24px; display: none;">
+          <div class="section-header">
+            <h2>Status Pengajuan</h2>
+            <span id="userInfoBadge" class="chip chip-info"></span>
+          </div>
+          <div id="loansList" class="loan-list">
+            <p class="muted">Memuat data...</p>
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <div class="container">© 2025 Perpustakaan Politeknik Negeri Medan</div>
+      </footer>
+    </div>
+  </body>
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+    crossorigin="anonymous"
+  ></script>
+  <script>
+    (function () {
+      let loginNumber = '';
+      let userEmail = '';
+      let userName = '';
+      
+      function init() {
+        // Ambil data dari localStorage
+        loginNumber = localStorage.getItem('userLoginNumber') || '';
+        userEmail = localStorage.getItem('userEmail') || '';
+        userName = localStorage.getItem('userName') || '';
+
+        // Jika belum login, redirect ke login
+        if (!loginNumber || !userEmail) {
+          document.getElementById('errorMessage').innerHTML = '<p class="muted">Anda harus login terlebih dahulu. <a href="./login.html">Klik di sini untuk login</a></p>';
+          document.getElementById('errorMessage').style.display = 'block';
+          return;
+        }
+
+        loadLoans();
+      }
+
+      function formatDate(dateString) {
+        const date = new Date(dateString);
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        return date.getDate() + ' ' + months[date.getMonth()] + ' ' + date.getFullYear() + ' ' + 
+               String(date.getHours()).padStart(2, '0') + ':' + String(date.getMinutes()).padStart(2, '0');
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      function loadLoans() {
+        fetch('./my-loans-api.php?login=' + encodeURIComponent(loginNumber))
+          .then(response => response.json())
+          .then(data => {
+            const section = document.getElementById('loansSection');
+            const badge = document.getElementById('userInfoBadge');
+            const list = document.getElementById('loansList');
+            
+            section.style.display = 'block';
+            badge.textContent = userName ? escapeHtml(userName) + ' (' + escapeHtml(userEmail) + ')' : escapeHtml(userEmail);
+            
+            if (!data.success || data.loans.length === 0) {
+              list.innerHTML = '<p class="muted">Belum ada permintaan peminjaman yang tercatat untuk nomor login ini.</p>';
+              return;
+            }
+
+            list.innerHTML = data.loans.map(loan => {
+              const statusClass = loan.status === 'disetujui' ? 'chip-success' : 
+                                 (loan.status === 'ditolak' ? 'chip-danger' : 
+                                 (loan.status === 'dikembalikan' ? 'chip-info' : 'chip-info'));
+              
+              const returnBtn = loan.status === 'disetujui' ? `
+                <div>
+                  <button 
+                    class="btn btn-outline return-btn" 
+                    data-request-id="${loan.id}"
+                    data-login-number="${escapeHtml(loginNumber)}"
+                  >
+                    Kembalikan
+                  </button>
+                </div>
+              ` : '';
+              
+              return `
+                <div class="loan-item">
+                  <div>
+                    <h3>${escapeHtml(loan.judul)}</h3>
+                    <p class="loan-meta">
+                      Diajukan pada ${formatDate(loan.created_at)} · Penulis: ${escapeHtml(loan.penulis)}
+                    </p>
+                  </div>
+                  <div>
+                    <p class="loan-meta">Status</p>
+                    <span class="chip ${statusClass}">${loan.status.charAt(0).toUpperCase() + loan.status.slice(1)}</span>
+                  </div>
+                  ${returnBtn}
+                </div>
+              `;
+            }).join('');
+
+            // Attach return button handlers
+            setTimeout(() => {
+              document.querySelectorAll('.return-btn').forEach(btn => {
+                btn.addEventListener('click', handleReturn);
+              });
+            }, 100);
+          })
+          .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('errorMessage').innerHTML = '<p class="muted">Gagal memuat data peminjaman.</p>';
+            document.getElementById('errorMessage').style.display = 'block';
+          });
+      }
+
+      function handleReturn(e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const requestId = this.getAttribute('data-request-id');
+        const loginNum = this.getAttribute('data-login-number');
+        
+        if (!requestId || !loginNum) {
+          alert('Data tidak lengkap. Silakan refresh halaman.');
+          return;
+        }
+
+        if (!confirm('Apakah Anda yakin ingin mengembalikan buku ini?')) {
+          return;
+        }
+
+        const originalText = this.textContent;
+        this.disabled = true;
+        this.textContent = 'Memproses...';
+        this.style.opacity = '0.6';
+        this.style.cursor = 'not-allowed';
+
+        const formData = new FormData();
+        formData.append('request_id', requestId);
+        formData.append('login_number', loginNum);
+
+        fetch('./return_loan.php', {
+          method: 'POST',
+          body: formData
+        })
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              alert(data.message || 'Buku berhasil dikembalikan.');
+              window.location.reload();
+            } else {
+              alert(data.message || 'Gagal mengembalikan buku.');
+              this.disabled = false;
+              this.textContent = originalText;
+              this.style.opacity = '1';
+              this.style.cursor = 'pointer';
+            }
+          })
+          .catch(error => {
+            console.error('Error:', error);
+            alert('Terjadi kesalahan saat mengembalikan buku. Pastikan koneksi internet Anda stabil.');
+            this.disabled = false;
+            this.textContent = originalText;
+            this.style.opacity = '1';
+            this.style.cursor = 'pointer';
+          });
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+    })();
+  </script>
+</html>
+

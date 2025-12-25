@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard Pengguna - PerpustakaanKu</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+    <link rel="stylesheet" href="./css/style.css" />
+  </head>
+  <body>
+    <div class="page">
+      <header>
+        <div class="container nav">
+          <a class="logo" href="./index.html">Perpustakaan Politeknik Negeri Medan</a>
+          <div class="search-bar">
+            <svg width="18" height="18" fill="none" stroke="#94a3b8">
+              <circle cx="8" cy="8" r="7" stroke-width="2"></circle>
+              <line x1="13" y1="13" x2="17" y2="17" stroke-width="2"></line>
+            </svg>
+            <input type="text" placeholder="Cari buku..." />
+          </div>
+          <a class="btn btn-outline" href="./index.html">Logout</a>
+        </div>
+      </header>
+
+      <main class="container layout">
+        <aside class="sidebar">
+          <h3>Menu</h3>
+          <nav>
+            <ul class="menu">
+              <li><a class="active" href="./dashboard.html">Beranda</a></li>
+              <li><a href="./books.html">Daftar Buku</a></li>
+              <li><a href="./my-loans.html">Peminjaman Saya</a></li>
+              <li><a href="./login.html">Logout</a></li>
+            </ul>
+          </nav>
+        </aside>
+
+        <section class="content">
+          <div>
+            <h1>Halo, <span id="userName">Pengguna</span></h1>
+            <p class="muted">Ringkasan aktivitas perpustakaan Anda.</p>
+          </div>
+
+          <div class="status-grid">
+            <div class="card status-card">
+              <p>Buku dipinjam</p>
+              <h3 id="statBukuDipinjam">0</h3>
+              <span class="chip chip-info">Sedang aktif</span>
+            </div>
+            <div class="card status-card">
+              <p>Jatuh tempo terdekat</p>
+              <h3 id="statJatuhTempo">-</h3>
+              <span id="statHariTempo" class="chip chip-info">-</span>
+            </div>
+            <div class="card status-card">
+              <p>Riwayat selesai</p>
+              <h3 id="statRiwayat">0</h3>
+              <span class="chip chip-success">Tidak ada denda</span>
+            </div>
+          </div>
+
+          <section class="card">
+            <div class="section-header">
+              <h2>Buku yang sedang dipinjam</h2>
+              <a class="btn btn-outline" href="./my-loans.html" id="linkMyLoans">Kelola</a>
+            </div>
+            <div class="loan-list" id="activeLoansList">
+              <p class="muted" style="padding: 16px;">Memuat data...</p>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="section-header">
+              <h2>Riwayat peminjaman</h2>
+              <a class="btn btn-outline" href="./my-loans.html" id="linkMyLoansHistory">Lihat semua</a>
+            </div>
+            <div class="history" id="historyList">
+              <p class="muted" style="padding: 16px;">Memuat data...</p>
+            </div>
+          </section>
+        </section>
+      </main>
+
+      <footer>
+        <div class="container">© 2025 Perpustakaan Politeknik Negeri Medan</div>
+      </footer>
+    </div>
+  </body>
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+    crossorigin="anonymous"
+  ></script>
+  <script>
+    (function () {
+      const loginNumber = localStorage.getItem('userLoginNumber') || '';
+      const userEmail = localStorage.getItem('userEmail') || '';
+      const userName = localStorage.getItem('userName') || 'Pengguna';
+
+      // Update nama user
+      document.getElementById('userName').textContent = userName;
+      const links = document.querySelectorAll('#linkMyLoans, #linkMyLoansHistory');
+      links.forEach(link => {
+        if (userEmail) {
+          link.href = './my-loans.html?email=' + encodeURIComponent(userEmail);
+        }
+      });
+
+      // Cek apakah sudah login
+      if (!loginNumber || !userEmail) {
+        window.location.href = './login.html';
+        return;
+      }
+
+      // Format tanggal
+      function formatDate(dateString) {
+        const date = new Date(dateString);
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        return date.getDate() + ' ' + months[date.getMonth()] + ' ' + date.getFullYear();
+      }
+
+      // Hitung tanggal jatuh tempo (14 hari dari pinjam)
+      function calculateDueDate(pinjamDate) {
+        const date = new Date(pinjamDate);
+        date.setDate(date.getDate() + 14);
+        return date;
+      }
+
+      // Hitung hari menuju tempo
+      function daysUntilDue(dueDate) {
+        const now = new Date();
+        const due = new Date(dueDate);
+        const diffTime = due - now;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays;
+      }
+
+      // Load data dari API
+      if (loginNumber) {
+        fetch('./dashboard-api.php?login=' + encodeURIComponent(loginNumber))
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              // Update statistik
+              document.getElementById('statBukuDipinjam').textContent = data.stats.buku_dipinjam;
+              document.getElementById('statRiwayat').textContent = data.stats.riwayat_selesai;
+
+              // Update jatuh tempo
+              if (data.stats.jatuh_tempo_terdekat) {
+                const dueDate = new Date(data.stats.jatuh_tempo_terdekat);
+                document.getElementById('statJatuhTempo').textContent = formatDate(data.stats.jatuh_tempo_terdekat);
+                
+                const hariTempo = data.stats.hari_menuju_tempo;
+                const chipTempo = document.getElementById('statHariTempo');
+                chipTempo.className = 'chip';
+                
+                if (hariTempo < 0) {
+                  chipTempo.textContent = 'Terlambat ' + Math.abs(hariTempo) + ' hari';
+                  chipTempo.classList.add('chip-danger');
+                } else if (hariTempo <= 3) {
+                  chipTempo.textContent = hariTempo + ' hari lagi';
+                  chipTempo.classList.add('chip-danger');
+                } else {
+                  chipTempo.textContent = hariTempo + ' hari lagi';
+                  chipTempo.classList.add('chip-info');
+                }
+              } else {
+                document.getElementById('statJatuhTempo').textContent = '-';
+                document.getElementById('statHariTempo').textContent = 'Tidak ada';
+                document.getElementById('statHariTempo').className = 'chip chip-success';
+              }
+
+              // Update daftar buku yang dipinjam
+              const activeList = document.getElementById('activeLoansList');
+              if (data.activeLoans.length === 0) {
+                activeList.innerHTML = '<p class="muted" style="padding: 16px;">Belum ada buku yang sedang dipinjam.</p>';
+              } else {
+                activeList.innerHTML = data.activeLoans.map(loan => {
+                  const dueDate = calculateDueDate(loan.created_at);
+                  return `
+                    <div class="loan-item">
+                      <div>
+                        <h3>${loan.judul}</h3>
+                        <p class="loan-meta">Dipinjam ${formatDate(loan.created_at)}</p>
+                      </div>
+                      <div>
+                        <p class="loan-meta">Jatuh tempo</p>
+                        <strong>${formatDate(dueDate.toISOString())}</strong>
+                      </div>
+                    </div>
+                  `;
+                }).join('');
+              }
+
+              // Update riwayat
+              const historyList = document.getElementById('historyList');
+              if (data.historyLoans.length === 0) {
+                historyList.innerHTML = '<p class="muted" style="padding: 16px;">Belum ada riwayat peminjaman.</p>';
+              } else {
+                historyList.innerHTML = data.historyLoans.map(loan => {
+                  return `
+                    <div class="history-item">
+                      <div>
+                        <strong>${loan.judul}</strong>
+                        <p class="loan-meta">Mengembalikan ${formatDate(loan.updated_at)}</p>
+                      </div>
+                      <span class="chip chip-success">Selesai</span>
+                    </div>
+                  `;
+                }).join('');
+              }
+            } else {
+              // Jika tidak ada data atau error
+              document.getElementById('activeLoansList').innerHTML = '<p class="muted" style="padding: 16px;">Belum ada data peminjaman.</p>';
+              document.getElementById('historyList').innerHTML = '<p class="muted" style="padding: 16px;">Belum ada riwayat peminjaman.</p>';
+            }
+          })
+          .catch(error => {
+            console.error('Error loading data:', error);
+            document.getElementById('activeLoansList').innerHTML = '<p class="muted" style="padding: 16px;">Gagal memuat data.</p>';
+            document.getElementById('historyList').innerHTML = '<p class="muted" style="padding: 16px;">Gagal memuat data.</p>';
+          });
+      } else {
+        // Jika tidak ada data
+        document.getElementById('activeLoansList').innerHTML = '<p class="muted" style="padding: 16px;">Silakan login terlebih dahulu.</p>';
+        document.getElementById('historyList').innerHTML = '<p class="muted" style="padding: 16px;">Silakan login terlebih dahulu.</p>';
+      }
+    })();
+  </script>
+</html>
+

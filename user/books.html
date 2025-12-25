@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Daftar Buku - PerpustakaanKu</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+    <link rel="stylesheet" href="./css/style.css" />
+  </head>
+  <body>
+    <div class="page">
+      <header>
+        <div class="container nav">
+          <a class="logo logo-with-mark" href="./index.html" aria-label="Beranda Perpustakaan Politeknik Negeri Medan">
+            <span class="logo-mark" aria-hidden="true"></span>
+            <span class="logo-text">
+              <span class="logo-title">Perpustakaan</span>
+              <span class="logo-subtitle">Politeknik Negeri Medan</span>
+            </span>
+          </a>
+          <div class="search-bar">
+            <svg width="18" height="18" fill="none" stroke="#94a3b8">
+              <circle cx="8" cy="8" r="7" stroke-width="2"></circle>
+              <line x1="13" y1="13" x2="17" y2="17" stroke-width="2"></line>
+            </svg>
+            <input type="text" placeholder="Cari koleksi buku..." />
+          </div>
+          <div class="login-actions">
+            <a class="btn btn-outline" href="./dashboard.html">Dashboard</a>
+            <a class="btn btn-outline" href="./request-login.html">Hubungi Admin</a>
+          </div>
+        </div>
+      </header>
+
+      <main class="container" style="padding: 40px 0;">
+        <div class="section-header">
+          <div>
+            <h1>Daftar Buku</h1>
+            <p class="muted" id="booksCount">Memuat data...</p>
+          </div>
+          <button class="btn btn-primary">Tambah ke Rak Favorit</button>
+        </div>
+
+        <div class="card" style="margin-bottom: 24px;">
+          <div class="filters">
+            <input type="text" id="searchInput" placeholder="Cari judul atau penulis..." />
+            <select id="categoryFilter">
+              <option value="">Semua kategori</option>
+            </select>
+            <select id="statusFilter">
+              <option value="">Semua status</option>
+              <option value="tersedia">Tersedia</option>
+              <option value="habis">Habis</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="booksContainer">
+          <section class="card" style="text-align: center; padding: 32px;">
+            <p class="muted">Memuat data...</p>
+          </section>
+        </div>
+      </main>
+
+      <footer>
+        <div class="container">© 2025 Perpustakaan Politeknik Negeri Medan</div>
+      </footer>
+    </div>
+  </body>
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+    crossorigin="anonymous"
+  ></script>
+  <script>
+    (function () {
+      const getUserId = () => localStorage.getItem('userId');
+      const getUserEmail = () => localStorage.getItem('userEmail');
+      const getLoginNumber = () => localStorage.getItem('userLoginNumber');
+
+      const checkLogin = () => {
+        const userId = getUserId();
+        const email = getUserEmail();
+        if (!userId || !email) {
+          // Jika belum login, redirect ke halaman login
+          if (window.location.pathname !== '/user/login.html' && !window.location.pathname.includes('login.html')) {
+            window.location.href = './login.html';
+          }
+          return false;
+        }
+        return true;
+      };
+
+      // Cek login saat halaman dimuat
+      checkLogin();
+
+      function coverUrl(cover, index, fallbacks) {
+        if (cover) {
+          const normalized = cover.startsWith('/') ? cover.substring(1) : cover;
+          return '../' + normalized;
+        }
+        return fallbacks[index % fallbacks.length];
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      let allBooks = [];
+      let allCategories = [];
+      let placeholders = [
+        'https://images.unsplash.com/photo-1495446815901-a7297e633e8d?auto=format&fit=crop&w=400&q=60',
+        'https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=400&q=60',
+        'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=400&q=60',
+        'https://images.unsplash.com/photo-1455885666463-1c1cf57934c6?auto=format&fit=crop&w=400&q=60',
+      ];
+
+      function loadBooks() {
+        fetch('./books-api.php')
+          .then(response => response.json())
+          .then(data => {
+            if (!data.success || data.books.length === 0) {
+              document.getElementById('booksContainer').innerHTML = '<section class="card" style="text-align: center; padding: 32px;"><p class="muted">Belum ada buku yang dapat ditampilkan. Silakan kembali beberapa saat lagi.</p></section>';
+              document.getElementById('booksCount').textContent = 'Koleksi belum tersedia.';
+              return;
+            }
+
+            // Simpan semua buku untuk filtering
+            allBooks = data.books;
+
+            // Simpan placeholders jika ada dari API
+            if (data.placeholders && data.placeholders.length > 0) {
+              placeholders = data.placeholders;
+            }
+
+            // Ambil kategori unik dari semua buku
+            allCategories = [...new Set(data.books.map(book => book.kategori))].sort();
+            
+            // Populate kategori filter
+            const categoryFilter = document.getElementById('categoryFilter');
+            categoryFilter.innerHTML = '<option value="">Semua kategori</option>' + 
+              allCategories.map(cat => `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`).join('');
+
+            // Render buku
+            renderBooks(allBooks);
+          })
+          .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('booksContainer').innerHTML = '<section class="card" style="text-align: center; padding: 32px;"><p class="muted">Gagal memuat data.</p></section>';
+          });
+      }
+
+      function renderBooks(books) {
+        const container = document.getElementById('booksContainer');
+        const countEl = document.getElementById('booksCount');
+        
+        if (books.length === 0) {
+          container.innerHTML = '<section class="card" style="text-align: center; padding: 32px;"><p class="muted">Tidak ada buku yang sesuai dengan filter.</p></section>';
+          countEl.textContent = 'Tidak ada hasil.';
+          return;
+        }
+
+        countEl.textContent = 'Menampilkan ' + books.length + ' dari ' + allBooks.length + ' koleksi.';
+        
+        container.innerHTML = '<div class="grid grid-4">' + books.map((book, index) => {
+          const available = book.stok > 0;
+          const cover = coverUrl(book.cover, index, placeholders);
+          
+          return `
+            <article class="card" data-book-id="${book.id}">
+              <img class="book-cover" src="${escapeHtml(cover)}" alt="Book cover" />
+              <h3>${escapeHtml(book.judul)}</h3>
+              <p class="muted">${escapeHtml(book.penulis)} · ${book.tahun}</p>
+              <span class="chip ${available ? 'chip-success' : 'chip-danger'}">${available ? 'Tersedia' : 'Habis'}</span>
+              <button
+                class="btn ${available ? 'btn-primary' : 'btn-outline'}"
+                data-borrow-btn
+                data-book-id="${book.id}"
+                style="margin-top: 16px;"
+              >
+                ${available ? 'Pinjam' : 'Masuk Antrian'}
+              </button>
+            </article>
+          `;
+        }).join('') + '</div>';
+
+        // Re-attach event listeners
+        document.querySelectorAll('[data-borrow-btn]').forEach(btn => {
+          btn.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const bookId = parseInt(btn.dataset.bookId, 10);
+            if (!bookId) return;
+            if (!checkLogin()) {
+              return;
+            }
+            submitLoanRequest(bookId, btn);
+          });
+        });
+      }
+
+      function filterBooks() {
+        const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+        const selectedCategory = document.getElementById('categoryFilter').value;
+        const selectedStatus = document.getElementById('statusFilter').value;
+
+        const filtered = allBooks.filter(book => {
+          // Filter pencarian (judul atau penulis)
+          const matchesSearch = !searchTerm || 
+            book.judul.toLowerCase().includes(searchTerm) || 
+            book.penulis.toLowerCase().includes(searchTerm);
+
+          // Filter kategori
+          const matchesCategory = !selectedCategory || book.kategori === selectedCategory;
+
+          // Filter status
+          let matchesStatus = true;
+          if (selectedStatus === 'tersedia') {
+            matchesStatus = book.stok > 0;
+          } else if (selectedStatus === 'habis') {
+            matchesStatus = book.stok === 0;
+          }
+
+          return matchesSearch && matchesCategory && matchesStatus;
+        });
+
+        renderBooks(filtered);
+      }
+
+      const submitLoanRequest = (bookId, button) => {
+        const loginNumber = getLoginNumber();
+        if (!loginNumber) {
+          alert('Anda harus login terlebih dahulu. Silakan login dengan email Anda.');
+          window.location.href = './login.html';
+          return;
+        }
+
+        button.textContent = 'Mengirim...';
+        button.disabled = true;
+
+        const formData = new FormData();
+        formData.append('book_id', bookId);
+        formData.append('login_number', loginNumber);
+
+        fetch('./request-loan.php', {
+          method: 'POST',
+          body: formData,
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.status === 'success') {
+              button.textContent = 'Menunggu persetujuan';
+              button.classList.remove('btn-outline');
+              button.classList.add('btn-primary');
+              button.dataset.loanStatus = 'pending';
+              setTimeout(() => {
+                const email = getUserEmail();
+                window.location.href = `./my-loans.html?email=${encodeURIComponent(email)}`;
+              }, 800);
+            } else {
+              throw new Error(data.message || 'Gagal mengirim permintaan.');
+            }
+          })
+          .catch((err) => {
+            button.textContent = 'Coba lagi';
+            button.disabled = false;
+            alert(err.message);
+          });
+      };
+
+      // Attach filter event listeners
+      document.getElementById('searchInput')?.addEventListener('input', filterBooks);
+      document.getElementById('categoryFilter')?.addEventListener('change', filterBooks);
+      document.getElementById('statusFilter')?.addEventListener('change', filterBooks);
+
+      // Also filter on search bar in header
+      const headerSearch = document.querySelector('header .search-bar input');
+      if (headerSearch) {
+        headerSearch.addEventListener('input', (e) => {
+          document.getElementById('searchInput').value = e.target.value;
+          filterBooks();
+        });
+      }
+
+      loadBooks();
+    })();
+  </script>
+</html>
+
